@@ -27,4 +27,4 @@ def get_data():
 if __name__ == '__main__':
     # Start the first fetch
     fetch_data()
-    app.run(host='localhost', port=7000)
+    app.run(host='localhost', port=7000,use_reloader=True)
