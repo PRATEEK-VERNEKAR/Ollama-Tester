@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Update Data</title>
+    <script>
+        function fetchData() {
+            fetch('/get-data')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('data').innerText = JSON.stringify(data, null, 2);
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        // Fetch data immediately and then every 15 minutes (900000 milliseconds)
+        fetchData();
+        setInterval(fetchData, 900000);
+    </script>
+</head>
+<body>
+    <h1>Data from Server</h1>
+    <pre id="data"></pre>
+</body>
+</html>
