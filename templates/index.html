@@ -39,7 +39,6 @@
                 .catch(error => console.error('Error fetching data:', error));
         }
 
-        // Fetch data immediately and then every 15 minutes (900000 milliseconds)
         fetchData();
         setInterval(fetchData, 900000);
     </script>
