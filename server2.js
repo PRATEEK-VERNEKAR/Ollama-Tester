@@ -1,38 +1,32 @@
-const express = require('express');
-const app = express();
-const axios = require('axios')
+const express = require('express')
+const axios = require("axios")
+const Redis = require("ioredis")
 
-app.use(express.json());
+const app = express()
+const redis = new Redis()
+const port = 3002;
 
-app.post("/server2",async (req,res)=>{
-    let newarr;
+app.use(express.json())
+
+app.post("/server2", async (req, res) => {
+    const { requestId, data } = req.body;
+    const newData = data + 5;
+    console.log("Server2 data",newData)
+
+    // await redis.hset(requestId,"flow","Server2 -> Server3","data",newData);
+
+    let existingflow = await redis.hget(requestId,"flow");
+    await redis.hset(requestId,"flow",`${existingflow} -> Server2`,"data-S2",newData);
+
     try{
-
-        const array = req.body.array;
-        
-        array.push(2);
-        
-        const result= await axios.post("http://localhost:3002/server3",{array:array})
-        
-        newarr=result.data.array;
-        
-
-        if(false){
-
-            newarr.push(7);
-        }
-
-        // throw Error("Random error")
-        
-        
-        res.json({message: "Array received",array:newarr});
+        const response =  await axios.post("http://localhost:3003/server3", {requestId,data:newData})
+        res.send(response.data)
     }
-    catch(err){
-        res.json({message: "Array received",array:newarr});
-    }
-})
+    catch(error){
+        console.log(error)
+        res.status(500).send("Error in Server2")
 
-const PORT = 3001;
-app.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
+    }
 });
+
+app.listen(port,()=>{console.log("Server2 is running on port 3002")})
