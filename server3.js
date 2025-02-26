@@ -9,26 +9,35 @@ const port = 3003;
 app.use(express.json())
 
 app.post("/server3", async (req, res) => {
-    const { requestId, data } = req.body;
-    const newData = data *3;
-    console.log("Server3 data",newData)
 
-    // await redis.hset(requestId,"flow","Server3 -> Server4","data",newData);
 
-    let existingflow = await redis.hget(requestId,"flow");
-    await redis.hset(requestId,"flow",`${existingflow} -> Server3`,"data-S3",newData);
+    let flowchecker = false;
 
     try{
-        const response =  await axios.post("http://localhost:300/server4", {requestId,data:newData})
+        const { requestId, data } = req.body;
+        const newData = data *3;
+        console.log("Server3 data",newData)
+    
+        // await redis.hset(requestId,"flow","Server3 -> Server4","data",newData);
+    
+        let existingflow = await redis.hget(requestId,"flow");
+        await redis.hset(requestId,"flow",`${existingflow} -> Server3`,"data-S3",newData);
+
+        flowchecker=true;
+        const response =  await axios.post("http://localhost:3004/server4", {requestId,data:newData})
         res.send(response.data)
     }
     catch(error){
-        console.log(error)
-        console.log(Object.keys(error))
-        console.log(Object.keys(error.message))
+        console.log(error?.response?.data)
+        // console.log(Object.keys(error))
+        // console.log(error.message)
+        if(flowchecker){
+            return res.status(500).send(error?.response?.data)
+        }
         res.status(500).send("Error in Server3")
 
     }
 });
 
-app.listen(port,()=>{console.log("Server2 is running on port 3003")})
+app.listen(port,()=>{console.log("Server3 is running on port 3003")})
+
