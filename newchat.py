@@ -10,7 +10,7 @@ def main():
         "Select Granite Code:",
         ["granite-code:8b", "granite-code:20b", "granite-code:34b"]
     )
-    
+
     server1_expected_value = st.number_input("Enter Server 1 Expected Value:", value=0)
     server2_expected_value = st.number_input("Enter Server 2 Expected Value:", value=0)
     server3_expected_value = st.number_input("Enter Server 3 Expected Value:", value=0)
