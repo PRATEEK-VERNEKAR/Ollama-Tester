@@ -15,23 +15,36 @@ app.get("/start",async (req,res)=>{
 
     let existingflow = await redis.hget(requestId,"flow") || "Master"
 
+    await redis.hset(requestId,"flow",`${existingflow}`,"data",requestData.data);
+    try{
+        const response = await axios.post("http://localhost:3001/server1",{requestId,requestData});
+        res.send({...response.data,"inputData":10,"message":"Testing Successful"})
+    }
+    catch(error){
+        res.status(500).send({requestId,requestData:error?.response?.data? error.response.data : error.message ,"inputData":10, "message":"Testing Failed"})
+    }
+})
+
+app.post("/start",async (req,res)=>{
+    const {initialVal}=req.body;
+
+    const requestId= `req-${Date.now()}`
+    const requestData= {requestId,data:initialVal};
+
+    let existingFlow = await redis.hget(requestId,"flow") || "Master"
 
     await redis.hset(requestId,"flow",`${existingflow}`,"data",requestData.data);
+
     try{
         const response = await axios.post("http://localhost:3001/server1",{requestId,requestData});
         res.send(response.data)
     }
     catch(error){
-        // console.log(Object.keys(error))
-        // console.log(error.response.data)
-        // console.log(error.message)
-        
-        res.status(500).send({requestId,requestData:error?.response?.data? error.response.data : error.message})
+        res.status(500).send({requestId,})
     }
 })
 
 async function analyzeFlow(requestId,s1exp,s2exp,s3exp,s4exp,modelType){
-    console.log(requestId,s1exp,s2exp,s3exp,s4exp)
     const flow=await redis.hget(requestId,"flow");
 
     if(!flow){
@@ -44,21 +57,22 @@ async function analyzeFlow(requestId,s1exp,s2exp,s3exp,s4exp,modelType){
     const s3obt= await redis.hget(requestId,"data-S3");
     const s4obt= await redis.hget(requestId,"data-S4");
 
-    console.log(flow)
-    console.log(expectedFlow)
-    console.log("inputdata",inputdata)
+
 
     if(flow!==expectedFlow){
         const last=flow[flow.length-1];
-        console.log(last)
 
         let errorCode=getServerCode(last);
 
 
         const flow_response = await axios.post("http://localhost:11434/api/generate",{
             model:`${modelType}` || "granite-code:34b",
-            prompt:`There is problem in this express javascript code, find out all the syntax errors here. Remember that redis is used in this project and it should use functions like hset() and hget() instead of set() or get() . Give the correct code and also give the possible reason for the error.
+            // prompt:`There is problem in this express javascript code, find out all the syntax errors here. Remember that redis is used in this project and it should use functions like hset() and hget() instead of set() or get() . Give the correct code and also give the possible reason for the error.
+            // ${errorCode}
+            // `,
+            prompt:`There might be some syntax errors or semantic errors in the below ExpressJs javascript code, 
             ${errorCode}
+            Fix the code and give the correct code
             `,
             stream:false,
             max_tokens:10,
@@ -67,13 +81,12 @@ async function analyzeFlow(requestId,s1exp,s2exp,s3exp,s4exp,modelType){
             }
         })
 
-        // return `Server ${parseInt(last)+1} might not be running or may have the following error\n\n`
 
         if(last=="r"){
-            return {msg:`\n\nServer 1 might not be running or may have some error\n\nUse the following code\n`,code:flow_response.data.response}
+            return {msg:`\n\n Module 1 might not be running or may have some error\n\nUse the following code\n`,code:flow_response.data.response}
 
         }
-        return {msg:`\n\nServer ${parseInt(last)+1} might not be running or may have some error\n\nUse the following code\n`,code:flow_response.data.response}
+        return {msg:`\n\n Module ${parseInt(last)+1} might not be running or may have some error\n\nUse the following code\n`,code:flow_response.data.response}
 
     }
     else{
@@ -113,102 +126,23 @@ async function analyzeFlow(requestId,s1exp,s2exp,s3exp,s4exp,modelType){
         }
     }
 
-
-    // const flow_response = await axios.post("http://localhost:11434/api/generate",{
-    //     model:"granite-code:34b",
-    //     prompt:`You are a Software Integration Analyzer. There are 4 api modules each interconnected by sharing data to perform a arithmetic task.
-    //     The expected flow is ${expectedFlow} and the obtained flow is ${expectedFlow}. Check if the flow is correct of not
-    //     `,
-    //     stream:false,
-    //     max_tokens:10,
-    //     options:{
-    //         temperature:0.1
-    //     }
-    // })
-
-    // if(flow===expectedFlow){
-    //     const value_response = await analyzeResults(requestId,s1exp,s2exp,s3exp,s4exp);
-
-    //     const combined = await axios.post("http://localhost:11434/api/generate",{
-    //         model:"granite-code:34b",
-    //         prompt:`You are a Software Integration Analyzer. There are 4 api modules each interconnected by sharing data to perform a arithmetic task.
-    //         I have results from flow analysis and value analysis. Please combine the results and suggest corrections.
-    //         1. Flow Analysis: ${flow_response.data.response}
-    //         2. Value Analysis: ${value_response}
-    //         `,
-    //         stream:false,
-    //         max_tokens:10,
-    //         options:{
-    //             temperature:0.2
-    //         }
-    //     })
-    //     return {flow_response : flow_response.data.response , value_response, combined:combined.data.response};
-    // }
-
-    // return flow_response.data;
-
-
-    // if(flow!==expectedFlow){
-    //     const server1=server1Analysis()
-    //     console.log(server1)
-    //     const flow_response = await axios.post("http://localhost:11434/api/generate",{
-    //         model:"granite-code:34b",
-    //         prompt:`There is problem in this express javascript code, find out all the syntax errors here. Give the correct code.
-    //         ${server1}
-    //         `,
-    //         stream:false,
-    //         max_tokens:10,
-    //         options:{
-    //             temperature:0.1
-    //         }
-    //     })
-
-    //     return flow_response.data.response;
-    // }
-
-}
-
-async function analyzeResults(requestId,s1exp,s2exp,s3exp,s4exp){
-    const s1obt= await redis.hget(requestId,"data-S1");
-    const s2obt= await redis.hget(requestId,"data-S2");
-    const s3obt= await redis.hget(requestId,"data-S3");
-    const s4obt= await redis.hget(requestId,"data");
-
-    const response = await axios.post("http://localhost:11434/api/generate",{
-        model:"granite-code:34b",
-        prompt:`You are a Software Integration Analyzer. There are 4 api modules each interconnected by sharing data to perform a arithmetic task.
-                The expected output of server 1 is ${s1exp} and the obtained output of server 1 is ${s1obt}
-                The expected output of server 2 is ${s2exp} and the obtained output of server 2 is ${s2obt}
-                The expected output of server 3 is ${s3exp} and the obtained output of server 3 is ${s3obt}
-                Finally the expected output of server 4 is ${s4exp} and the obtained output of server 4 is ${s4obt}
-                Check if all the values are correct or not
-                `,
-        stream:false,
-        max_tokens:10,
-        options:{
-            temperature:0.2
-        }
-
-    })
-
-    return response.data.response
 }
 
 function getServerCode(server){
     if(server=="3"){
-        const data=fs.readFileSync("server4.js", { encoding: 'utf8', flag: 'r' });
+        const data=fs.readFileSync("module4.js", { encoding: 'utf8', flag: 'r' });
         return data;
     }
     else if(server=="2"){
-        const data=fs.readFileSync("server3.js",{encoding: 'utf8', flag: 'r'});
+        const data=fs.readFileSync("module3.js",{encoding: 'utf8', flag: 'r'});
         return data;
     }
     else if(server=="1"){
-        const data=fs.readFileSync("server2.js",{encoding: 'utf8', flag: 'r'});
+        const data=fs.readFileSync("module2.js",{encoding: 'utf8', flag: 'r'});
         return data;
     }
     else{
-        const data=fs.readFileSync("server1.js",{encoding: 'utf8', flag: 'r'});
+        const data=fs.readFileSync("module1.js",{encoding: 'utf8', flag: 'r'});
         return data;
     }
 }
